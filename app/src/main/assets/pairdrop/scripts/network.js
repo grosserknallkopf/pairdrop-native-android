@@ -577,27 +577,6 @@ class Peer {
 
         this._requestPending = request;
 
-        if (window.PairDropAndroid && window.PairDropAndroid.onIncomingTransferRequest) {
-            try {
-                const nativeWillRespond = window.PairDropAndroid.onIncomingTransferRequest(
-                    this._peerId,
-                    JSON.stringify(request)
-                );
-                if (nativeWillRespond) return;
-            } catch (error) {
-                console.error("Android incoming transfer hook failed", error);
-            }
-
-            try {
-                if (window.PairDropAndroid.autoAcceptIncoming && window.PairDropAndroid.autoAcceptIncoming()) {
-                    this._respondToFileTransferRequest(true);
-                    return;
-                }
-            } catch (error) {
-                console.error("Android auto accept hook failed", error);
-            }
-        }
-
         if (this._autoAccept) {
             // auto accept if set via Edit Paired Devices Dialog
             this._respondToFileTransferRequest(true);

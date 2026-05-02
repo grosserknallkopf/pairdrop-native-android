@@ -67,12 +67,16 @@ class PairDropService : Service() {
                 }
             }
             ACTION_ACCEPT_TRANSFER -> {
+                ensureStarted()
+                startHeadlessClient()
                 respondToPendingTransfer(
                     peerId = intent.getStringExtra(EXTRA_PEER_ID).orEmpty(),
                     accepted = true
                 )
             }
             ACTION_REJECT_TRANSFER -> {
+                ensureStarted()
+                startHeadlessClient()
                 respondToPendingTransfer(
                     peerId = intent.getStringExtra(EXTRA_PEER_ID).orEmpty(),
                     accepted = false

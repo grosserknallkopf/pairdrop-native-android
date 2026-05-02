@@ -26,6 +26,7 @@ object PendingShareStore {
     private val pendingFiles = mutableListOf<SharedFile>()
     private val availableFiles = linkedMapOf<String, SharedFile>()
     private var pendingText: String? = null
+    private var availableText: String? = null
 
     fun addFromIntent(context: Context, intent: Intent?) {
         if (intent == null) return
@@ -36,18 +37,26 @@ object PendingShareStore {
     }
 
     fun hasPendingShares(): Boolean = synchronized(lock) {
-        pendingFiles.isNotEmpty() || !pendingText.isNullOrBlank()
+        pendingFiles.isNotEmpty() ||
+            availableFiles.isNotEmpty() ||
+            !pendingText.isNullOrBlank() ||
+            !availableText.isNullOrBlank()
     }
 
     fun consumeAsJson(): String {
         val files: List<SharedFile>
         val text: String?
         synchronized(lock) {
-            files = pendingFiles.toList()
-            pendingFiles.clear()
-            files.forEach { availableFiles[it.id] = it }
-            text = pendingText
-            pendingText = null
+            if (pendingFiles.isNotEmpty()) {
+                pendingFiles.forEach { availableFiles[it.id] = it }
+                pendingFiles.clear()
+            }
+            if (!pendingText.isNullOrBlank()) {
+                availableText = pendingText
+                pendingText = null
+            }
+            files = availableFiles.values.toList()
+            text = availableText
         }
 
         val root = JSONObject()
@@ -68,6 +77,16 @@ object PendingShareStore {
             }
         })
         return root.toString()
+    }
+
+    fun markSharesHandled() {
+        synchronized(lock) {
+            availableFiles.values.forEach { shared ->
+                runCatching { shared.file.delete() }
+            }
+            availableFiles.clear()
+            availableText = null
+        }
     }
 
     fun fileForId(id: String): File? = synchronized(lock) {

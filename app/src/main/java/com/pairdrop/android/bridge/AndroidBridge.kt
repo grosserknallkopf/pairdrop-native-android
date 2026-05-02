@@ -18,6 +18,11 @@ class AndroidBridge(
     fun consumePendingShares(): String = PendingShareStore.consumeAsJson()
 
     @JavascriptInterface
+    fun markPendingSharesHandled() {
+        PendingShareStore.markSharesHandled()
+    }
+
+    @JavascriptInterface
     fun hasPendingShares(): Boolean = PendingShareStore.hasPendingShares()
 
     @JavascriptInterface

@@ -79,6 +79,7 @@ object NotificationHelper {
             .setContentText(text)
             .setContentIntent(openIntent)
             .setOngoing(true)
+            .setOnlyAlertOnce(true)
             .setCategory(Notification.CATEGORY_SERVICE)
             .setShowWhen(false)
             .addAction(

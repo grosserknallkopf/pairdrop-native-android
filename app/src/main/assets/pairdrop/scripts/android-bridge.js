@@ -34,6 +34,9 @@
                 files: files,
                 text: sharedText
             });
+            if (Native.markPendingSharesHandled) {
+                Native.markPendingSharesHandled();
+            }
             Native.log("Android share payload activated: " + files.length + " file(s), text=" + !!sharedText);
             Native.keepAlive();
         } catch (error) {

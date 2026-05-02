@@ -58,7 +58,7 @@
         try {
             Native.keepAlive();
             for (const file of detail.files) {
-                await saveFileViaNativeBridge(file, detail.peerId || "");
+                await saveFileViaNativeHttp(file, detail.peerId || "");
             }
 
             if (window.Localization) {
@@ -71,6 +71,26 @@
             Native.log("Could not save received files: " + error);
             Events.fire("notify-user", "Could not save received files");
         }
+    }
+
+    async function saveFileViaNativeHttp(file, peerId) {
+        const name = encodeURIComponent(file.name || "PairDrop file");
+        const mime = encodeURIComponent(file.type || "application/octet-stream");
+        const response = await fetch("http://127.0.0.1:52000/native/received-file?name=" + name + "&mime=" + mime, {
+            method: "POST",
+            headers: {
+                "Content-Type": file.type || "application/octet-stream"
+            },
+            body: file
+        });
+        if (!response.ok) {
+            throw new Error("Native HTTP save failed with status " + response.status);
+        }
+        if (peerId) {
+            Native.onTransferProgress(peerId, 1, "process");
+        }
+        const payload = await response.json().catch(function () { return {}; });
+        Native.log("Saved received PairDrop file to " + (payload.uri || "unknown"));
     }
 
     async function saveFileViaNativeBridge(file, peerId) {

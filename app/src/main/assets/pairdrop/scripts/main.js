@@ -240,3 +240,4 @@ class PairDrop {
 }
 
 const pairDrop = new PairDrop();
+window.pairDrop = pairDrop;

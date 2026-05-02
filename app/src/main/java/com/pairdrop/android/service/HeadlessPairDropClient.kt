@@ -42,19 +42,35 @@ class HeadlessPairDropClient(
 
     fun respondToTransfer(peerId: String, accepted: Boolean) {
         val escapedPeerId = JSONObject.quote(peerId)
+        val escapedAccepted = if (accepted) "true" else "false"
         mainHandler.post {
-            webView?.evaluateJavascript(
-                """
-                    (function () {
-                        if (!window.Events) return false;
-                        window.Events.fire('respond-to-files-transfer-request', {
-                            to: $escapedPeerId,
-                            accepted: $accepted
-                        });
-                        return true;
-                    })();
-                """.trimIndent(),
-                null
+            emitTransferResponse(escapedPeerId, escapedAccepted, attempt = 0)
+        }
+    }
+
+    private fun emitTransferResponse(escapedPeerId: String, escapedAccepted: String, attempt: Int) {
+        val currentWebView = webView ?: return
+        currentWebView.evaluateJavascript(
+            """
+                (function () {
+                    if (!window.Events || !window.pairDrop || !window.pairDrop.peers || !window.pairDrop.peers.peers) return false;
+                    var peerId = $escapedPeerId;
+                    var peer = window.pairDrop.peers.peers[peerId];
+                    if (!peer || !peer._requestPending) return false;
+                    window.Events.fire('respond-to-files-transfer-request', {
+                        to: peerId,
+                        accepted: $escapedAccepted
+                    });
+                    return true;
+                })();
+            """.trimIndent()
+        ) { result ->
+            val sent = result == "true"
+            if (sent) return@evaluateJavascript
+            if (attempt >= 20) return@evaluateJavascript
+            mainHandler.postDelayed(
+                { emitTransferResponse(escapedPeerId, escapedAccepted, attempt + 1) },
+                150
             )
         }
     }
@@ -79,7 +95,11 @@ class HeadlessPairDropClient(
                 ),
                 "PairDropAndroid"
             )
-            webViewClient = object : WebViewClient() {}
+            webViewClient = object : WebViewClient() {
+                override fun onPageFinished(view: WebView, url: String) {
+                    super.onPageFinished(view, url)
+                }
+            }
         }
     }
 }

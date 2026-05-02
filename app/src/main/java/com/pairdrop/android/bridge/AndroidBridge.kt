@@ -5,6 +5,7 @@ import android.util.Log
 import android.webkit.JavascriptInterface
 import com.pairdrop.android.service.PairDropService
 import com.pairdrop.android.share.PendingShareStore
+import com.pairdrop.android.util.NativeReceiveStore
 
 class AndroidBridge(
     context: Context,
@@ -17,7 +18,34 @@ class AndroidBridge(
     fun consumePendingShares(): String = PendingShareStore.consumeAsJson()
 
     @JavascriptInterface
+    fun hasPendingShares(): Boolean = PendingShareStore.hasPendingShares()
+
+    @JavascriptInterface
     fun handlesDownloads(): Boolean = true
+
+    @JavascriptInterface
+    fun beginReceiveFile(name: String?, mime: String?, size: Double): String {
+        return NativeReceiveStore.begin(
+            context = appContext,
+            name = name.orEmpty(),
+            mime = mime.orEmpty()
+        )
+    }
+
+    @JavascriptInterface
+    fun appendReceiveFile(token: String?, base64: String?): Boolean {
+        return NativeReceiveStore.append(token.orEmpty(), base64.orEmpty())
+    }
+
+    @JavascriptInterface
+    fun finishReceiveFile(token: String?): String {
+        return NativeReceiveStore.finish(appContext, token.orEmpty())
+    }
+
+    @JavascriptInterface
+    fun abortReceiveFile(token: String?) {
+        NativeReceiveStore.abort(token.orEmpty())
+    }
 
     @JavascriptInterface
     fun autoAcceptIncoming(): Boolean = autoAcceptIncoming

@@ -518,6 +518,7 @@ class PeerUI {
         this._callbackInput = e => this._onFilesSelected(e);
         this._callbackClickSleep = _ => NoSleepUI.enable();
         this._callbackClick = e => this._onClick(e);
+        this._callbackNativeSharePointerDown = e => this._onNativeSharePointerDown(e);
         this._callbackTouchStartSleep = _ => NoSleepUI.enable();
         this._callbackDrop = e => this._onDrop(e);
         this._callbackDragEnd = e => this._onDragEnd(e);
@@ -535,6 +536,7 @@ class PeerUI {
             this.$el.removeEventListener('pointerdown', this._callbackPointerDown);
 
             // Add Events Normal Mode
+            this.$el.addEventListener('pointerdown', this._callbackNativeSharePointerDown, true);
             this.$el.querySelector('input').addEventListener('change', this._callbackInput);
             this.$el.addEventListener('click', this._callbackClick);
             this.$el.addEventListener('click', this._callbackClickSleep);
@@ -549,6 +551,7 @@ class PeerUI {
         }
         else {
             // Remove Events Normal Mode
+            this.$el.removeEventListener('pointerdown', this._callbackNativeSharePointerDown, true);
             this.$el.removeEventListener('click', this._callbackClick);
             this.$el.removeEventListener('click', this._callbackClickSleep);
             this.$el.removeEventListener('touchstart', this._callbackTouchStartSleep);
@@ -574,8 +577,33 @@ class PeerUI {
         });
     }
 
-    async _onClick(e) {
+    _onNativeSharePointerDown(e) {
         if (!window.PairDropNative || this._shareMode.active) return;
+        if (!window.PairDropNative.hasPendingShares || !window.PairDropNative.hasPendingShares()) return;
+
+        this._nativePendingShareClick = true;
+        e.stopPropagation();
+        e.preventDefault();
+        window.PairDropNative.ensurePendingSharesActivated()
+            .then(activated => {
+                if (!activated) return;
+                Events.fire('share-mode-pointerdown', {
+                    peerId: this._peer.id
+                });
+            });
+    }
+
+    async _onClick(e) {
+        const nativePendingShareClick = !!this._nativePendingShareClick;
+        this._nativePendingShareClick = false;
+        if (!window.PairDropNative) return;
+
+        const hasPendingNativeShares = window.PairDropNative.hasPendingShares && window.PairDropNative.hasPendingShares();
+        if (nativePendingShareClick || hasPendingNativeShares) {
+            e.stopPropagation();
+            e.preventDefault();
+        }
+        if (this._shareMode.active || nativePendingShareClick) return;
         if (!window.PairDropNative.ensurePendingSharesActivated) return;
 
         const activated = await window.PairDropNative.ensurePendingSharesActivated();

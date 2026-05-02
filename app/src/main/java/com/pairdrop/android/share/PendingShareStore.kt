@@ -35,6 +35,10 @@ object PendingShareStore {
         }
     }
 
+    fun hasPendingShares(): Boolean = synchronized(lock) {
+        pendingFiles.isNotEmpty() || !pendingText.isNullOrBlank()
+    }
+
     fun consumeAsJson(): String {
         val files: List<SharedFile>
         val text: String?

@@ -123,7 +123,7 @@ class MainActivity : Activity() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             }
-            addJavascriptInterface(AndroidBridge(this@MainActivity, autoAcceptIncoming = true), "PairDropAndroid")
+            addJavascriptInterface(AndroidBridge(this@MainActivity, autoAcceptIncoming = false), "PairDropAndroid")
             webViewClient = object : WebViewClient() {
                 override fun onReceivedError(
                     view: WebView,

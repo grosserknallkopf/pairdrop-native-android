@@ -55,15 +55,7 @@
         try {
             Native.keepAlive();
             for (const file of detail.files) {
-                const params = new URLSearchParams({
-                    name: file.name || "PairDrop file",
-                    mime: file.type || "application/octet-stream"
-                });
-                const response = await fetch("/native/received-file?" + params.toString(), {
-                    method: "POST",
-                    body: file
-                });
-                if (!response.ok) throw new Error("Native save failed for " + file.name);
+                await saveFileViaNativeBridge(file, detail.peerId || "");
             }
 
             if (window.Localization) {
@@ -78,9 +70,57 @@
         }
     }
 
+    async function saveFileViaNativeBridge(file, peerId) {
+        let token = "";
+        try {
+            token = Native.beginReceiveFile(
+                file.name || "PairDrop file",
+                file.type || "application/octet-stream",
+                file.size || 0
+            );
+            if (!token) throw new Error("No native receive token");
+
+            const chunkSize = 256 * 1024;
+            for (let offset = 0; offset < file.size; offset += chunkSize) {
+                const chunk = file.slice(offset, Math.min(offset + chunkSize, file.size));
+                const buffer = await chunk.arrayBuffer();
+                const base64 = arrayBufferToBase64ForAndroid(buffer);
+                if (!Native.appendReceiveFile(token, base64)) {
+                    throw new Error("Native append failed");
+                }
+                if (peerId) {
+                    Native.onTransferProgress(peerId, Math.min((offset + chunk.size) / file.size, 1), "process");
+                }
+            }
+
+            const uri = Native.finishReceiveFile(token);
+            Native.log("Saved received PairDrop file to " + uri);
+        } catch (error) {
+            if (token) Native.abortReceiveFile(token);
+            throw error;
+        }
+    }
+
+    function arrayBufferToBase64ForAndroid(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let binary = "";
+        const chunk = 0x8000;
+        for (let index = 0; index < bytes.length; index += chunk) {
+            binary += String.fromCharCode.apply(null, bytes.subarray(index, index + chunk));
+        }
+        return btoa(binary);
+    }
+
     window.PairDropNative = {
         consumePendingShares: consumePendingShares,
         ensurePendingSharesActivated: ensurePendingSharesActivated,
+        hasPendingShares: function () {
+            try {
+                return Native.hasPendingShares();
+            } catch (_) {
+                return false;
+            }
+        },
         ready: true,
         handlesDownloads: function () {
             try {

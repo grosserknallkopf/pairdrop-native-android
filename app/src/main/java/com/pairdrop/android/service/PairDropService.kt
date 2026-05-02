@@ -6,6 +6,7 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.IBinder
@@ -125,7 +126,8 @@ class PairDropService : Service() {
             context = applicationContext,
             scope = scope,
             nodeId = nodeId,
-            onTransferStatus = ::updateNotification
+            onTransferStatus = ::updateNotification,
+            onFileSaved = ::showSavedFileNotification
         )
         localServer.start()
         server = localServer
@@ -152,6 +154,17 @@ class PairDropService : Service() {
         val notification = NotificationHelper.serviceNotification(this, text, progress)
         val manager = getSystemService(NotificationManager::class.java)
         manager.notify(NotificationHelper.NOTIFICATION_ID, notification)
+    }
+
+    private fun showSavedFileNotification(fileName: String, mime: String, uri: Uri) {
+        val notification = NotificationHelper.savedFileNotification(
+            context = this,
+            fileName = fileName,
+            uri = uri,
+            mime = mime
+        )
+        getSystemService(NotificationManager::class.java)
+            .notify(NotificationHelper.SAVED_NOTIFICATION_BASE_ID + (fileName.hashCode() and 0x0FFF), notification)
     }
 
     private fun scheduleShutdown() {

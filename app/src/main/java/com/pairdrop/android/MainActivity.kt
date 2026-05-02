@@ -14,10 +14,6 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.view.KeyEvent
 import android.view.ViewGroup
-import android.widget.Button
-import android.widget.LinearLayout
-import android.widget.ScrollView
-import android.widget.TextView
 import android.webkit.ConsoleMessage
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -28,6 +24,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.window.OnBackInvokedDispatcher
 import com.pairdrop.android.bridge.AndroidBridge
+import com.pairdrop.android.intro.IntroView
 import com.pairdrop.android.service.PairDropService
 import com.pairdrop.android.share.PendingShareStore
 import com.pairdrop.android.util.Constants
@@ -38,6 +35,7 @@ class MainActivity : Activity() {
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var loadAttempts = 0
     private var pendingShareInjectionAttempts = 0
+    private var introView: IntroView? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,7 +70,7 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        PairDropService.keepAlive(this)
+        introView?.refresh() ?: PairDropService.keepAlive(this)
     }
 
     override fun onDestroy() {
@@ -233,53 +231,23 @@ class MainActivity : Activity() {
     }
 
     private fun showIntro() {
-        val scrollView = ScrollView(this)
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(44, 56, 44, 44)
-        }
-
-        container.addView(TextView(this).apply {
-            text = "PairDrop"
-            textSize = 30f
-            setPadding(0, 0, 0, 20)
-        })
-        container.addView(TextView(this).apply {
-            text = """
-                PairDrop teilt Dateien direkt zwischen deinen Geraeten.
-
-                Wenn du PairDrop ueber die Quick-Settings-Kachel aktivierst, bleibt dein Smartphone im Hintergrund sichtbar. Eingehende Transfers erscheinen als Benachrichtigung mit Akzeptieren und Ablehnen.
-
-                Empfangene Dateien werden automatisch in Downloads/PairDrop gespeichert. Fuer zuverlaessigen Hintergrundempfang solltest du Benachrichtigungen erlauben und die Akku-Optimierung fuer diese App deaktivieren.
-            """.trimIndent()
-            textSize = 16f
-            setLineSpacing(4f, 1f)
-            setPadding(0, 0, 0, 28)
-        })
-
-        container.addView(Button(this).apply {
-            text = "Benachrichtigungen erlauben"
-            setOnClickListener { requestNotificationPermissionIfNeeded() }
-        })
-
-        container.addView(Button(this).apply {
-            text = "Akku-Optimierung pruefen"
-            setOnClickListener { openBatteryOptimizationSettings() }
-        })
-
-        container.addView(Button(this).apply {
-            text = "Loslegen"
-            setOnClickListener {
-                getSharedPreferences(Constants.PREFS, MODE_PRIVATE)
-                    .edit()
-                    .putBoolean(Constants.PREF_INTRO_DONE, true)
-                    .apply()
-                startPairDropUi(intent)
+        introView = IntroView(
+            context = this,
+            callbacks = object : IntroView.Callbacks {
+                override fun requestNotifications() = requestNotificationPermissionIfNeeded()
+                override fun openBatterySettings() = openBatteryOptimizationSettings()
+                override fun openAppSettings() = this@MainActivity.openAppSettings()
+                override fun finishIntro() {
+                    getSharedPreferences(Constants.PREFS, MODE_PRIVATE)
+                        .edit()
+                        .putBoolean(Constants.PREF_INTRO_DONE, true)
+                        .apply()
+                    introView = null
+                    startPairDropUi(intent)
+                }
             }
-        })
-
-        scrollView.addView(container)
-        setContentView(scrollView)
+        )
+        setContentView(introView!!.create())
     }
 
     private fun openBatteryOptimizationSettings() {
@@ -297,6 +265,15 @@ class MainActivity : Activity() {
             .onFailure {
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri))
             }
+    }
+
+    private fun openAppSettings() {
+        startActivity(
+            Intent(
+                Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                Uri.parse("package:$packageName")
+            )
+        )
     }
 
     companion object {

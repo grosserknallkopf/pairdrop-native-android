@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import com.pairdrop.android.MainActivity
 import com.pairdrop.android.R
@@ -13,9 +14,11 @@ import com.pairdrop.android.service.PairDropService
 
 object NotificationHelper {
     const val SERVICE_CHANNEL_ID = "pairdrop_service"
+    const val TRANSFER_CHANNEL_ID = "pairdrop_transfers"
     const val REQUEST_CHANNEL_ID = "pairdrop_requests"
     const val NOTIFICATION_ID = 42
     const val REQUEST_NOTIFICATION_BASE_ID = 10_000
+    const val SAVED_NOTIFICATION_BASE_ID = 20_000
 
     fun ensureChannels(context: Context) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
@@ -27,6 +30,13 @@ object NotificationHelper {
         )
         serviceChannel.description = context.getString(R.string.notification_service_text)
         manager.createNotificationChannel(serviceChannel)
+
+        val transferChannel = NotificationChannel(
+            TRANSFER_CHANNEL_ID,
+            context.getString(R.string.notification_channel_transfer),
+            NotificationManager.IMPORTANCE_DEFAULT
+        )
+        manager.createNotificationChannel(transferChannel)
 
         val requestChannel = NotificationChannel(
             REQUEST_CHANNEL_ID,
@@ -140,6 +150,47 @@ object NotificationHelper {
                     R.drawable.ic_notification,
                     context.getString(R.string.notification_accept),
                     acceptIntent
+                ).build()
+            )
+            .build()
+    }
+
+    fun savedFileNotification(
+        context: Context,
+        fileName: String,
+        uri: Uri,
+        mime: String
+    ): Notification {
+        val openIntent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, mime.ifBlank { "application/octet-stream" })
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        val openPendingIntent = PendingIntent.getActivity(
+            context,
+            fileName.hashCode(),
+            Intent.createChooser(openIntent, "Open with"),
+            pendingIntentFlags()
+        )
+
+        val builder = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Notification.Builder(context, TRANSFER_CHANNEL_ID)
+        } else {
+            @Suppress("DEPRECATION")
+            Notification.Builder(context)
+        }
+
+        return builder
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("PairDrop file saved")
+            .setContentText(fileName)
+            .setContentIntent(openPendingIntent)
+            .setAutoCancel(true)
+            .setCategory(Notification.CATEGORY_STATUS)
+            .addAction(
+                Notification.Action.Builder(
+                    R.drawable.ic_notification,
+                    context.getString(R.string.notification_open),
+                    openPendingIntent
                 ).build()
             )
             .build()

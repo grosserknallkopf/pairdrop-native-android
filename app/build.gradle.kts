@@ -42,6 +42,7 @@ android {
 dependencies {
     val ktorVersion = "3.4.3"
 
+    implementation("com.google.android.material:material:1.13.0")
     implementation("io.ktor:ktor-server-core-jvm:$ktorVersion")
     implementation("io.ktor:ktor-server-cio-jvm:$ktorVersion")
     implementation("io.ktor:ktor-server-websockets-jvm:$ktorVersion")

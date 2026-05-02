@@ -41,7 +41,8 @@ class LocalPairDropServer(
     private val context: Context,
     private val scope: CoroutineScope,
     private val nodeId: String,
-    private val onTransferStatus: (String, Int?) -> Unit
+    private val onTransferStatus: (String, Int?) -> Unit,
+    private val onFileSaved: (String, String, Uri) -> Unit = { _, _, _ -> }
 ) {
     val hub = PairDropSignalingHub(scope, nodeId)
     private var engine: EmbeddedServer<CIOApplicationEngine, CIOApplicationEngine.Configuration>? = null
@@ -167,6 +168,7 @@ class LocalPairDropServer(
                 }
 
                 onTransferStatus("Saved $fileName", 100)
+                onFileSaved(fileName, mime, uri)
                 call.respondText(
                     JSONObject()
                         .put("ok", true)

@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">PairDrop</string>
+    <string name="notification_channel_service">PairDrop Service</string>
+    <string name="notification_channel_transfer">PairDrop Transfers</string>
+    <string name="notification_service_title">PairDrop is running</string>
+    <string name="notification_service_text">LAN sharing is available nearby</string>
+    <string name="notification_stop">Stop</string>
+</resources>

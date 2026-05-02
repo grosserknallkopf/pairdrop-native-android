@@ -1,0 +1,8 @@
+<resources>
+    <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/pairdrop_blue_dark</item>
+        <item name="android:navigationBarColor">#101820</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

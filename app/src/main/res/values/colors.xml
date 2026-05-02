@@ -1,0 +1,5 @@
+<resources>
+    <color name="pairdrop_blue">#3367D6</color>
+    <color name="pairdrop_blue_dark">#254EA6</color>
+    <color name="notification_icon_tint">#FFFFFF</color>
+</resources>

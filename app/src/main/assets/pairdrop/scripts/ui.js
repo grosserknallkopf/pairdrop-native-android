@@ -517,6 +517,7 @@ class PeerUI {
     _createCallbacks() {
         this._callbackInput = e => this._onFilesSelected(e);
         this._callbackClickSleep = _ => NoSleepUI.enable();
+        this._callbackClick = e => this._onClick(e);
         this._callbackTouchStartSleep = _ => NoSleepUI.enable();
         this._callbackDrop = e => this._onDrop(e);
         this._callbackDragEnd = e => this._onDragEnd(e);
@@ -535,6 +536,7 @@ class PeerUI {
 
             // Add Events Normal Mode
             this.$el.querySelector('input').addEventListener('change', this._callbackInput);
+            this.$el.addEventListener('click', this._callbackClick);
             this.$el.addEventListener('click', this._callbackClickSleep);
             this.$el.addEventListener('touchstart', this._callbackTouchStartSleep);
             this.$el.addEventListener('drop', this._callbackDrop);
@@ -547,6 +549,7 @@ class PeerUI {
         }
         else {
             // Remove Events Normal Mode
+            this.$el.removeEventListener('click', this._callbackClick);
             this.$el.removeEventListener('click', this._callbackClickSleep);
             this.$el.removeEventListener('touchstart', this._callbackTouchStartSleep);
             this.$el.removeEventListener('drop', this._callbackDrop);
@@ -564,6 +567,20 @@ class PeerUI {
 
     _onPointerDown(e) {
         // Prevents triggering of event twice on touch devices
+        e.stopPropagation();
+        e.preventDefault();
+        Events.fire('share-mode-pointerdown', {
+            peerId: this._peer.id
+        });
+    }
+
+    async _onClick(e) {
+        if (!window.PairDropNative || this._shareMode.active) return;
+        if (!window.PairDropNative.ensurePendingSharesActivated) return;
+
+        const activated = await window.PairDropNative.ensurePendingSharesActivated();
+        if (!activated) return;
+
         e.stopPropagation();
         e.preventDefault();
         Events.fire('share-mode-pointerdown', {

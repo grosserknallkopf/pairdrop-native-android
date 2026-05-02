@@ -41,6 +41,14 @@
         }
     }
 
+    async function ensurePendingSharesActivated() {
+        if (window.pairDrop && window.pairDrop.peersUI && window.pairDrop.peersUI.shareMode.active) {
+            return true;
+        }
+        await consumePendingShares();
+        return !!(window.pairDrop && window.pairDrop.peersUI && window.pairDrop.peersUI.shareMode.active);
+    }
+
     async function saveReceivedFiles(detail) {
         if (!detail || !detail.files || !detail.files.length) return;
 
@@ -72,6 +80,7 @@
 
     window.PairDropNative = {
         consumePendingShares: consumePendingShares,
+        ensurePendingSharesActivated: ensurePendingSharesActivated,
         ready: true,
         handlesDownloads: function () {
             try {
@@ -96,9 +105,22 @@
     });
 
     Events.on("files-transfer-request", function (event) {
+        const detail = event.detail || {};
+        let nativeWillRespond = false;
+        try {
+            nativeWillRespond = Native.onIncomingTransferRequest(
+                detail.peerId || "",
+                JSON.stringify(detail.request || {})
+            );
+        } catch (error) {
+            Native.log("Could not hand transfer request to Android: " + error);
+        }
+
+        if (nativeWillRespond) return;
         if (!Native.autoAcceptIncoming()) return;
+
         Events.fire("respond-to-files-transfer-request", {
-            to: event.detail.peerId,
+            to: detail.peerId,
             accepted: true
         });
     });

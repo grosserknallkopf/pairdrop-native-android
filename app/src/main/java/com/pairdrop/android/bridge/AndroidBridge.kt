@@ -8,7 +8,8 @@ import com.pairdrop.android.share.PendingShareStore
 
 class AndroidBridge(
     context: Context,
-    private val autoAcceptIncoming: Boolean = true
+    private val autoAcceptIncoming: Boolean = true,
+    private val incomingTransferHandler: ((String, String) -> Boolean)? = null
 ) {
     private val appContext = context.applicationContext
 
@@ -20,6 +21,14 @@ class AndroidBridge(
 
     @JavascriptInterface
     fun autoAcceptIncoming(): Boolean = autoAcceptIncoming
+
+    @JavascriptInterface
+    fun onIncomingTransferRequest(peerId: String?, requestJson: String?): Boolean {
+        val id = peerId.orEmpty()
+        val request = requestJson.orEmpty()
+        if (id.isBlank() || request.isBlank()) return false
+        return incomingTransferHandler?.invoke(id, request) ?: false
+    }
 
     @JavascriptInterface
     fun keepAlive() {

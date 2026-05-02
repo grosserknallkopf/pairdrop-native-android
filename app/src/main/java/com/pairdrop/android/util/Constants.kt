@@ -8,5 +8,6 @@ object Constants {
     const val PREFS = "pairdrop_native"
     const val PREF_AUTO_SHUTDOWN_MINUTES = "auto_shutdown_minutes"
     const val PREF_TILE_ENABLED = "tile_enabled"
+    const val PREF_INTRO_DONE = "intro_done"
     const val CLOUD_SIGNALING_SERVER = "pairdrop.net/"
 }

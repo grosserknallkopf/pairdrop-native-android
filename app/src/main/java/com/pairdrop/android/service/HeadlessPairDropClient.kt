@@ -10,9 +10,11 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import com.pairdrop.android.bridge.AndroidBridge
 import com.pairdrop.android.util.Constants
+import org.json.JSONObject
 
 class HeadlessPairDropClient(
-    private val context: Context
+    private val context: Context,
+    private val incomingTransferHandler: (String, String) -> Boolean
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var webView: WebView? = null
@@ -38,6 +40,25 @@ class HeadlessPairDropClient(
         }
     }
 
+    fun respondToTransfer(peerId: String, accepted: Boolean) {
+        val escapedPeerId = JSONObject.quote(peerId)
+        mainHandler.post {
+            webView?.evaluateJavascript(
+                """
+                    (function () {
+                        if (!window.Events) return false;
+                        window.Events.fire('respond-to-files-transfer-request', {
+                            to: $escapedPeerId,
+                            accepted: $accepted
+                        });
+                        return true;
+                    })();
+                """.trimIndent(),
+                null
+            )
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     private fun createWebView(): WebView {
         return WebView(context).apply {
@@ -50,7 +71,14 @@ class HeadlessPairDropClient(
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             }
-            addJavascriptInterface(AndroidBridge(context, autoAcceptIncoming = true), "PairDropAndroid")
+            addJavascriptInterface(
+                AndroidBridge(
+                    context = context,
+                    autoAcceptIncoming = true,
+                    incomingTransferHandler = incomingTransferHandler
+                ),
+                "PairDropAndroid"
+            )
             webViewClient = object : WebViewClient() {}
         }
     }

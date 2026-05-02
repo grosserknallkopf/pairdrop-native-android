@@ -2,7 +2,11 @@
     <string name="app_name">PairDrop</string>
     <string name="notification_channel_service">PairDrop Service</string>
     <string name="notification_channel_transfer">PairDrop Transfers</string>
+    <string name="notification_channel_requests">Incoming PairDrop requests</string>
     <string name="notification_service_title">PairDrop is running</string>
     <string name="notification_service_text">LAN sharing is available nearby</string>
+    <string name="notification_request_title">Incoming PairDrop transfer</string>
     <string name="notification_stop">Stop</string>
+    <string name="notification_accept">Accept</string>
+    <string name="notification_reject">Reject</string>
 </resources>

@@ -10,8 +10,14 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.os.PowerManager
+import android.provider.Settings
 import android.view.KeyEvent
 import android.view.ViewGroup
+import android.widget.Button
+import android.widget.LinearLayout
+import android.widget.ScrollView
+import android.widget.TextView
 import android.webkit.ConsoleMessage
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
@@ -35,9 +41,17 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (shouldShowIntro()) {
+            showIntro()
+            return
+        }
+        startPairDropUi(intent)
+    }
+
+    private fun startPairDropUi(startIntent: Intent?) {
         requestNotificationPermissionIfNeeded()
         PairDropService.startForUi(this)
-        PendingShareStore.addFromIntent(this, intent)
+        PendingShareStore.addFromIntent(this, startIntent)
         setupWebView()
         registerBackHandler()
         loadPairDrop()
@@ -211,6 +225,78 @@ class MainActivity : Activity() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
         if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
         requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_PERMISSION_REQUEST)
+    }
+
+    private fun shouldShowIntro(): Boolean {
+        return !getSharedPreferences(Constants.PREFS, MODE_PRIVATE)
+            .getBoolean(Constants.PREF_INTRO_DONE, false)
+    }
+
+    private fun showIntro() {
+        val scrollView = ScrollView(this)
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(44, 56, 44, 44)
+        }
+
+        container.addView(TextView(this).apply {
+            text = "PairDrop"
+            textSize = 30f
+            setPadding(0, 0, 0, 20)
+        })
+        container.addView(TextView(this).apply {
+            text = """
+                PairDrop teilt Dateien direkt zwischen deinen Geraeten.
+
+                Wenn du PairDrop ueber die Quick-Settings-Kachel aktivierst, bleibt dein Smartphone im Hintergrund sichtbar. Eingehende Transfers erscheinen als Benachrichtigung mit Akzeptieren und Ablehnen.
+
+                Empfangene Dateien werden automatisch in Downloads/PairDrop gespeichert. Fuer zuverlaessigen Hintergrundempfang solltest du Benachrichtigungen erlauben und die Akku-Optimierung fuer diese App deaktivieren.
+            """.trimIndent()
+            textSize = 16f
+            setLineSpacing(4f, 1f)
+            setPadding(0, 0, 0, 28)
+        })
+
+        container.addView(Button(this).apply {
+            text = "Benachrichtigungen erlauben"
+            setOnClickListener { requestNotificationPermissionIfNeeded() }
+        })
+
+        container.addView(Button(this).apply {
+            text = "Akku-Optimierung pruefen"
+            setOnClickListener { openBatteryOptimizationSettings() }
+        })
+
+        container.addView(Button(this).apply {
+            text = "Loslegen"
+            setOnClickListener {
+                getSharedPreferences(Constants.PREFS, MODE_PRIVATE)
+                    .edit()
+                    .putBoolean(Constants.PREF_INTRO_DONE, true)
+                    .apply()
+                startPairDropUi(intent)
+            }
+        })
+
+        scrollView.addView(container)
+        setContentView(scrollView)
+    }
+
+    private fun openBatteryOptimizationSettings() {
+        val powerManager = getSystemService(POWER_SERVICE) as? PowerManager
+        val packageUri = Uri.parse("package:$packageName")
+        val intent = if (
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+            powerManager?.isIgnoringBatteryOptimizations(packageName) != true
+        ) {
+            Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, packageUri)
+        } else {
+            Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+        }
+        runCatching { startActivity(intent) }
+            .onFailure {
+                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, packageUri))
+            }
     }
 
     companion object {

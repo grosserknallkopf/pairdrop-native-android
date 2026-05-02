@@ -15,11 +15,11 @@ class PairDropTileService : TileService() {
 
     override fun onClick() {
         super.onClick()
-        val nextState = if (PairDropService.isRunning()) {
+        val nextState = if (PairDropService.isTileEnabled(this)) {
             PairDropService.stop(this)
             Tile.STATE_INACTIVE
         } else {
-            PairDropService.start(this)
+            PairDropService.startFromTile(this)
             Tile.STATE_ACTIVE
         }
         qsTile?.state = nextState
@@ -27,7 +27,7 @@ class PairDropTileService : TileService() {
     }
 
     private fun updateState() {
-        qsTile?.state = if (PairDropService.isRunning()) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
+        qsTile?.state = if (PairDropService.isTileEnabled(this)) Tile.STATE_ACTIVE else Tile.STATE_INACTIVE
         qsTile?.updateTile()
     }
 

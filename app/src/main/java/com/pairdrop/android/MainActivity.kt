@@ -8,6 +8,8 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.KeyEvent
 import android.view.ViewGroup
 import android.webkit.ConsoleMessage
@@ -26,13 +28,15 @@ import com.pairdrop.android.util.Constants
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var loadAttempts = 0
+    private var pendingShareInjectionAttempts = 0
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         requestNotificationPermissionIfNeeded()
-        PairDropService.start(this)
+        PairDropService.startForUi(this)
         PendingShareStore.addFromIntent(this, intent)
         setupWebView()
         registerBackHandler()
@@ -42,7 +46,7 @@ class MainActivity : Activity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        PairDropService.start(this)
+        PairDropService.startForUi(this)
         PendingShareStore.addFromIntent(this, intent)
         if (::webView.isInitialized) {
             webView.evaluateJavascript(
@@ -61,6 +65,9 @@ class MainActivity : Activity() {
         if (::webView.isInitialized) {
             webView.removeJavascriptInterface("PairDropAndroid")
             webView.destroy()
+        }
+        if (!isChangingConfigurations) {
+            PairDropService.releaseUi(this)
         }
         super.onDestroy()
     }
@@ -104,7 +111,7 @@ class MainActivity : Activity() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
             }
-            addJavascriptInterface(AndroidBridge(this@MainActivity), "PairDropAndroid")
+            addJavascriptInterface(AndroidBridge(this@MainActivity, autoAcceptIncoming = true), "PairDropAndroid")
             webViewClient = object : WebViewClient() {
                 override fun onReceivedError(
                     view: WebView,
@@ -120,6 +127,7 @@ class MainActivity : Activity() {
                 override fun onPageFinished(view: WebView, url: String) {
                     loadAttempts = 0
                     PairDropService.keepAlive(this@MainActivity)
+                    schedulePendingShareInjection()
                 }
             }
             webChromeClient = object : WebChromeClient() {
@@ -153,6 +161,31 @@ class MainActivity : Activity() {
 
     private fun loadPairDrop() {
         webView.loadUrl("http://127.0.0.1:${Constants.LOCAL_HTTP_PORT}/")
+    }
+
+    private fun schedulePendingShareInjection() {
+        pendingShareInjectionAttempts = 0
+        tryInjectPendingShare()
+    }
+
+    private fun tryInjectPendingShare() {
+        if (!::webView.isInitialized || pendingShareInjectionAttempts >= 40) return
+        pendingShareInjectionAttempts += 1
+        webView.evaluateJavascript(
+            """
+                (function () {
+                    if (window.PairDropNative && window.PairDropNative.ready) {
+                        window.PairDropNative.consumePendingShares();
+                        return true;
+                    }
+                    return false;
+                })();
+            """.trimIndent()
+        ) { result ->
+            if (result != "true") {
+                mainHandler.postDelayed({ tryInjectPendingShare() }, 250)
+            }
+        }
     }
 
     private fun registerBackHandler() {

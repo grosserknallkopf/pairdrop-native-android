@@ -77,15 +77,19 @@ object PendingShareStore {
     private fun addSingle(context: Context, intent: Intent) {
         val stream = intent.streamUri()
         val text = intent.getStringExtra(Intent.EXTRA_TEXT)
+        val clipUris = intent.clipUris()
         if (stream != null) {
             addUri(context, stream, intent.type)
+        } else if (clipUris.isNotEmpty()) {
+            clipUris.forEach { addUri(context, it, intent.type) }
         } else if (!text.isNullOrBlank()) {
             synchronized(lock) { pendingText = text }
         }
     }
 
     private fun addMultiple(context: Context, intent: Intent) {
-        intent.streamUris().forEach { uri ->
+        val uris = intent.streamUris().ifEmpty { intent.clipUris() }
+        uris.forEach { uri ->
             addUri(context, uri, intent.type)
         }
     }
@@ -150,6 +154,13 @@ object PendingShareStore {
         } else {
             @Suppress("DEPRECATION")
             getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)?.toList().orEmpty()
+        }
+    }
+
+    private fun Intent.clipUris(): List<Uri> {
+        val clipData = clipData ?: return emptyList()
+        return (0 until clipData.itemCount).mapNotNull { index ->
+            clipData.getItemAt(index).uri
         }
     }
 }

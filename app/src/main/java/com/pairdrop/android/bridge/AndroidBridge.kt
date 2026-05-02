@@ -6,7 +6,10 @@ import android.webkit.JavascriptInterface
 import com.pairdrop.android.service.PairDropService
 import com.pairdrop.android.share.PendingShareStore
 
-class AndroidBridge(context: Context) {
+class AndroidBridge(
+    context: Context,
+    private val autoAcceptIncoming: Boolean = true
+) {
     private val appContext = context.applicationContext
 
     @JavascriptInterface
@@ -16,7 +19,7 @@ class AndroidBridge(context: Context) {
     fun handlesDownloads(): Boolean = true
 
     @JavascriptInterface
-    fun autoAcceptIncoming(): Boolean = false
+    fun autoAcceptIncoming(): Boolean = autoAcceptIncoming
 
     @JavascriptInterface
     fun keepAlive() {

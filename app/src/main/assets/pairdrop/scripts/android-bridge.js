@@ -4,6 +4,11 @@
     const Native = window.PairDropAndroid;
 
     async function consumePendingShares() {
+        if (!window.Events) {
+            setTimeout(consumePendingShares, 250);
+            return;
+        }
+
         let payload;
         try {
             payload = JSON.parse(Native.consumePendingShares() || "{}");
@@ -29,6 +34,7 @@
                 files: files,
                 text: sharedText
             });
+            Native.log("Android share payload activated: " + files.length + " file(s), text=" + !!sharedText);
             Native.keepAlive();
         } catch (error) {
             Native.log("Could not import Android share payload: " + error);
@@ -66,6 +72,7 @@
 
     window.PairDropNative = {
         consumePendingShares: consumePendingShares,
+        ready: true,
         handlesDownloads: function () {
             try {
                 return Native.handlesDownloads();

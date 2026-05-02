@@ -30,6 +30,7 @@ class PairDropService : Service() {
     private var remoteSyncJob: Job? = null
     private var shutdownJob: Job? = null
     private var multicastLock: WifiManager.MulticastLock? = null
+    private var headlessClient: HeadlessPairDropClient? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -44,7 +45,24 @@ class PairDropService : Service() {
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
+            ACTION_START_TILE -> {
+                setTileEnabled(true)
+                ensureStarted()
+                startHeadlessClient()
+            }
+            ACTION_START_UI -> {
+                ensureStarted()
+                stopHeadlessClient()
+            }
+            ACTION_RELEASE_UI -> {
+                if (isTileEnabled()) {
+                    startHeadlessClient()
+                } else {
+                    stopSelf()
+                }
+            }
             ACTION_STOP -> {
+                setTileEnabled(false)
                 stopSelf()
                 return START_NOT_STICKY
             }
@@ -55,7 +73,10 @@ class PairDropService : Service() {
                 scheduleShutdown()
             }
             ACTION_KEEP_ALIVE -> scheduleShutdown()
-            else -> ensureStarted()
+            else -> {
+                ensureStarted()
+                if (isTileEnabled()) startHeadlessClient()
+            }
         }
         return START_STICKY
     }
@@ -65,9 +86,11 @@ class PairDropService : Service() {
     override fun onDestroy() {
         remoteSyncJob?.cancel()
         shutdownJob?.cancel()
+        stopHeadlessClient()
         server?.stop()
         nsdManager?.stop()
         multicastLock?.let { if (it.isHeld) it.release() }
+        setTileEnabled(false)
         running.set(false)
         PairDropTileService.requestTileUpdate(this)
         super.onDestroy()
@@ -142,8 +165,34 @@ class PairDropService : Service() {
         return id
     }
 
+    private fun startHeadlessClient() {
+        headlessClient ?: HeadlessPairDropClient(applicationContext).also {
+            headlessClient = it
+            it.start()
+        }
+    }
+
+    private fun stopHeadlessClient() {
+        headlessClient?.stop()
+        headlessClient = null
+    }
+
+    private fun isTileEnabled(): Boolean {
+        return getSharedPreferences(Constants.PREFS, MODE_PRIVATE)
+            .getBoolean(Constants.PREF_TILE_ENABLED, false)
+    }
+
+    private fun setTileEnabled(enabled: Boolean) {
+        getSharedPreferences(Constants.PREFS, MODE_PRIVATE)
+            .edit()
+            .putBoolean(Constants.PREF_TILE_ENABLED, enabled)
+            .apply()
+    }
+
     companion object {
-        const val ACTION_START = "com.pairdrop.android.START"
+        const val ACTION_START_UI = "com.pairdrop.android.START_UI"
+        const val ACTION_START_TILE = "com.pairdrop.android.START_TILE"
+        const val ACTION_RELEASE_UI = "com.pairdrop.android.RELEASE_UI"
         const val ACTION_STOP = "com.pairdrop.android.STOP"
         const val ACTION_PROGRESS = "com.pairdrop.android.PROGRESS"
         const val ACTION_KEEP_ALIVE = "com.pairdrop.android.KEEP_ALIVE"
@@ -154,8 +203,26 @@ class PairDropService : Service() {
 
         fun isRunning(): Boolean = running.get()
 
-        fun start(context: Context) {
-            val intent = Intent(context, PairDropService::class.java).setAction(ACTION_START)
+        fun isTileEnabled(context: Context): Boolean {
+            return context.getSharedPreferences(Constants.PREFS, Context.MODE_PRIVATE)
+                .getBoolean(Constants.PREF_TILE_ENABLED, false)
+        }
+
+        fun startForUi(context: Context) {
+            start(context, ACTION_START_UI)
+        }
+
+        fun startFromTile(context: Context) {
+            start(context, ACTION_START_TILE)
+        }
+
+        fun releaseUi(context: Context) {
+            if (!isRunning()) return
+            context.startService(Intent(context, PairDropService::class.java).setAction(ACTION_RELEASE_UI))
+        }
+
+        private fun start(context: Context, action: String) {
+            val intent = Intent(context, PairDropService::class.java).setAction(action)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 context.startForegroundService(intent)
             } else {

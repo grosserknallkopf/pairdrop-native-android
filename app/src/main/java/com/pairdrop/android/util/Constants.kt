@@ -7,5 +7,6 @@ object Constants {
     const val DEFAULT_AUTO_SHUTDOWN_MINUTES = 10
     const val PREFS = "pairdrop_native"
     const val PREF_AUTO_SHUTDOWN_MINUTES = "auto_shutdown_minutes"
+    const val PREF_TILE_ENABLED = "tile_enabled"
     const val CLOUD_SIGNALING_SERVER = "pairdrop.net/"
 }

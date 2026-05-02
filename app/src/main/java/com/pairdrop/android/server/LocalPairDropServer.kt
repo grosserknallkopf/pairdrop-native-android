@@ -89,7 +89,7 @@ class LocalPairDropServer(
     private fun Application.pairDropRoutes() {
         routing {
             get("/config") {
-                val signalingServer: Any = if (NetworkState.hasValidatedInternet(context)) {
+                val signalingServer: Any = if (NetworkState.hasInternetCapability(context)) {
                     Constants.CLOUD_SIGNALING_SERVER
                 } else {
                     false

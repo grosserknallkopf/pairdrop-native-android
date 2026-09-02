@@ -122,6 +122,6 @@ app/src/main/
 
 ## Upstream and license
 
-This application embeds [PairDrop](https://github.com/schlagmichdoch/PairDrop) v1.11.2. PairDrop is distributed under the MIT License; the bundled upstream license is preserved in [THIRD_PARTY_PAIRDROP_LICENSE.txt](THIRD_PARTY_PAIRDROP_LICENSE.txt).
+This application embeds [PairDrop](https://github.com/schlagmichdoch/PairDrop) v1.11.2. PairDrop is distributed under the GPL-3.0 license; the bundled upstream license is preserved in [LICENSE](LICENSE).
 
 The Android wrapper is an independent community project and is not affiliated with Apple or AirDrop.

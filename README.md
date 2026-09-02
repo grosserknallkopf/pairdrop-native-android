@@ -1,44 +1,127 @@
-# PairDrop Native Android
+<p align="center">
+  <img src="app/src/main/res/drawable/pairdrop_native_logo.png" width="180" alt="PairDrop Native Android logo">
+</p>
 
-Native Android wrapper for PairDrop v1.11.2 with:
+<h1 align="center">PairDrop Native Android</h1>
 
-- embedded PairDrop web client assets in `app/src/main/assets/pairdrop`
-- local Ktor HTTP/WebSocket signaling server on `127.0.0.1:53317`
-- offline LAN discovery through Android `NsdManager` (`_pairdrop._tcp.`)
-- Quick Settings tile to start/stop the foreground service
-- Android Sharesheet support for `ACTION_SEND` and `ACTION_SEND_MULTIPLE`
-- direct saving of received files to `Downloads/PairDrop/` through `MediaStore`
+<p align="center">
+  Send files, text, and links between devices — online through PairDrop or directly on your local network.
+</p>
 
-The app serves the bundled PairDrop client locally. When validated internet is available, `/config` points the PairDrop client at `pairdrop.net` cloud signaling. Without internet, the same client falls back to the embedded signaling server, while the service advertises and discovers other native Android instances over mDNS.
+<p align="center">
+  <a href="https://github.com/grosserknallkopf/pairdrop-native-android/actions/workflows/android.yml"><img alt="Android build" src="https://github.com/grosserknallkopf/pairdrop-native-android/actions/workflows/android.yml/badge.svg"></a>
+  <a href="https://github.com/grosserknallkopf/pairdrop-native-android/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/grosserknallkopf/pairdrop-native-android?include_prereleases&label=beta"></a>
+  <img alt="Android 8+" src="https://img.shields.io/badge/Android-8.0%2B-3DDC84?logo=android&logoColor=white">
+  <a href="THIRD_PARTY_PAIRDROP_LICENSE.txt"><img alt="License" src="https://img.shields.io/badge/PairDrop-MIT-blue"></a>
+</p>
 
-## Build
+> [!IMPORTANT]
+> This project is currently in beta. Please report reproducible problems with the Android version, device model, network type, and relevant logs.
+
+## What it does
+
+PairDrop Native Android packages the PairDrop web client as an Android application and adds native integration around it. It works with regular PairDrop clients through the public signaling service when internet access is available. Native Android instances can also discover each other and transfer on the same Wi-Fi network when the internet is unavailable.
+
+### Features
+
+- Send one or multiple files, text, and links
+- Receive files directly into `Downloads/PairDrop/`
+- Share from other Android apps through the system Sharesheet
+- Continue transfers through a foreground service
+- Accept or reject background transfer requests from notifications
+- View transfer and save progress in the service notification
+- Enable background availability from a Quick Settings tile
+- Discover multiple native PairDrop devices over mDNS/NSD
+- Fall back to local signaling when Android reports no validated internet connection
+- Reconnect after returning from Android's file picker
+- Keep a selected file and recipient while a reconnect completes
+- Avoid blocking the UI while large Sharesheet files are imported
+- Use PairDrop pairing, public rooms, room secrets, and its translated interface
+
+## Requirements
+
+- Android 8.0 (API 26) or newer
+- Wi-Fi or another working network connection
+- Notification permission on Android 13+ for background transfer requests
+- Devices on the same Wi-Fi network for offline LAN discovery
+
+Some vendors aggressively stop background apps. The onboarding screen links to the relevant battery and app settings when an exemption is needed.
+
+## Install the beta
+
+1. Download the APK from the [GitHub releases page](https://github.com/grosserknallkopf/pairdrop-native-android/releases).
+2. Allow installation from the browser or file manager when Android asks.
+3. Install the APK and complete the short onboarding flow.
+4. Optionally add the PairDrop tile from Android's Quick Settings editor for background availability.
+
+GitHub may show a warning because the APK is installed outside an app store. Verify that downloads come from this repository. Every published update is signed with the same project release key.
+
+## Online and offline behavior
+
+| Network state | Signaling | Discovery and transfer |
+| --- | --- | --- |
+| Validated internet | `pairdrop.net` | Compatible PairDrop devices appear through the normal PairDrop service |
+| No validated internet | Embedded server | Native Android instances discover one another over mDNS on the local network |
+
+The bundled client is served from the device on `127.0.0.1:53317`. The local Ktor server provides the web assets, WebSocket signaling, native file handoff, and LAN relay endpoints.
+
+## Privacy and permissions
+
+PairDrop transfers use a direct peer connection whenever possible. When WebRTC cannot establish that connection, PairDrop may use its supported fallback transport. Online discovery uses `pairdrop.net`; offline native discovery stays on the local network.
+
+The app requests only the permissions needed for networking, LAN discovery, its foreground service, notifications, and saving received files. Android 10+ files are saved through `MediaStore`; Android 8 and 9 use the legacy storage permission.
+
+## Build from source
+
+Prerequisites:
+
+- JDK 17
+- Android SDK with API 36
 
 ```bash
+git clone https://github.com/grosserknallkopf/pairdrop-native-android.git
+cd pairdrop-native-android
 ./gradlew :app:assembleDebug
 ```
 
-Every push and pull request is built by GitHub Actions. Debug APKs are attached to
-the workflow run as artifacts.
+The debug APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
 
-## Beta release
+To exercise offline mode, install the APK on at least two Android devices connected to the same Wi-Fi network. Disable or disconnect internet access while keeping the LAN active.
 
-Tags matching `v*` build a signed APK and publish it as a GitHub pre-release. Configure
-these repository Actions secrets once before creating the first tag:
+## Continuous integration and releases
 
-- `ANDROID_KEYSTORE_BASE64`: Base64-encoded Java/Android keystore
-- `ANDROID_KEYSTORE_PASSWORD`: Keystore password
-- `ANDROID_KEY_ALIAS`: Signing-key alias
-- `ANDROID_KEY_PASSWORD`: Signing-key password
+The [Android workflow](.github/workflows/android.yml) builds and tests every push and pull request, then uploads a debug APK as a workflow artifact.
 
-Create the first beta after merging the changes:
+Tags matching `v*` additionally build a signed APK and publish a GitHub pre-release. The repository must contain these Actions secrets:
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+
+Example:
 
 ```bash
-git tag v0.1.0-beta.1
-git push origin v0.1.0-beta.1
+git tag v0.1.0-beta.2
+git push origin v0.1.0-beta.2
 ```
 
-Keep the keystore and its passwords safe. Every later update must use the same signing key.
+The release keystore must be backed up securely. Android will reject an update signed with a different key.
 
-Install the debug APK on at least two Android devices on the same Wi-Fi network to test offline LAN transfer. Add the PairDrop Quick Settings tile from Android's tile editor, then tap it to start or stop the service.
+## Project layout
 
-PairDrop is MIT licensed. The copied upstream license is stored in `THIRD_PARTY_PAIRDROP_LICENSE.txt`.
+```text
+app/src/main/
+├── assets/pairdrop/     Bundled PairDrop web client
+├── java/.../server/     Local HTTP and WebSocket signaling server
+├── java/.../service/    Foreground service and headless client
+├── java/.../discovery/  Android NSD/mDNS integration
+├── java/.../bridge/     WebView-to-Android bridge
+└── java/.../share/      Android Sharesheet import
+```
+
+## Upstream and license
+
+This application embeds [PairDrop](https://github.com/schlagmichdoch/PairDrop) v1.11.2. PairDrop is distributed under the MIT License; the bundled upstream license is preserved in [THIRD_PARTY_PAIRDROP_LICENSE.txt](THIRD_PARTY_PAIRDROP_LICENSE.txt).
+
+The Android wrapper is an independent community project and is not affiliated with Apple or AirDrop.

@@ -76,7 +76,7 @@
     async function saveFileViaNativeHttp(file, peerId) {
         const name = encodeURIComponent(file.name || "PairDrop file");
         const mime = encodeURIComponent(file.type || "application/octet-stream");
-        const response = await fetch("http://127.0.0.1:52000/native/received-file?name=" + name + "&mime=" + mime, {
+        const response = await fetch("/native/received-file?name=" + name + "&mime=" + mime, {
             method: "POST",
             headers: {
                 "Content-Type": file.type || "application/octet-stream"

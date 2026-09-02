@@ -24,6 +24,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicBoolean
 
 class PairDropService : Service() {
@@ -35,7 +36,8 @@ class PairDropService : Service() {
     private var shutdownJob: Job? = null
     private var multicastLock: WifiManager.MulticastLock? = null
     private var headlessClient: HeadlessPairDropClient? = null
-    private val pendingTransferRequests = mutableMapOf<String, String>()
+    private var uiAttached = false
+    private val pendingTransferRequests = ConcurrentHashMap<String, String>()
 
     override fun onCreate() {
         super.onCreate()
@@ -56,12 +58,15 @@ class PairDropService : Service() {
                 startHeadlessClient()
             }
             ACTION_START_UI -> {
+                uiAttached = true
                 ensureStarted()
                 stopHeadlessClient()
             }
             ACTION_RELEASE_UI -> {
+                uiAttached = false
                 if (isTileEnabled()) {
                     startHeadlessClient()
+                    scheduleShutdown()
                 } else {
                     stopSelf()
                 }
@@ -173,6 +178,10 @@ class PairDropService : Service() {
 
     private fun scheduleShutdown() {
         shutdownJob?.cancel()
+        if (uiAttached) {
+            shutdownJob = null
+            return
+        }
         val minutes = getSharedPreferences(Constants.PREFS, MODE_PRIVATE)
             .getInt(Constants.PREF_AUTO_SHUTDOWN_MINUTES, Constants.DEFAULT_AUTO_SHUTDOWN_MINUTES)
             .coerceAtLeast(1)

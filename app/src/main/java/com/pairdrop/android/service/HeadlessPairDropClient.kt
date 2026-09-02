@@ -90,7 +90,7 @@ class HeadlessPairDropClient(
             addJavascriptInterface(
                 AndroidBridge(
                     context = context,
-                    autoAcceptIncoming = true,
+                    autoAcceptIncoming = false,
                     incomingTransferHandler = incomingTransferHandler
                 ),
                 "PairDropAndroid"

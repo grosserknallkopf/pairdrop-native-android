@@ -8,7 +8,6 @@ import android.util.Log
 import com.pairdrop.android.server.ServiceEndpoint
 import com.pairdrop.android.util.Constants
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicBoolean
 
 class PairDropNsdManager(
     context: Context,
@@ -17,7 +16,8 @@ class PairDropNsdManager(
     private val appContext = context.applicationContext
     private val nsdManager = appContext.getSystemService(Context.NSD_SERVICE) as NsdManager
     private val endpoints = ConcurrentHashMap<String, ServiceEndpoint>()
-    private val resolving = AtomicBoolean(false)
+    private val resolveQueue = ArrayDeque<NsdServiceInfo>()
+    private var resolving = false
     private var registered = false
     private var discovering = false
 
@@ -82,6 +82,7 @@ class PairDropNsdManager(
             runCatching { nsdManager.unregisterService(registrationListener) }
         }
         endpoints.clear()
+        synchronized(resolveQueue) { resolveQueue.clear() }
     }
 
     fun snapshot(): List<ServiceEndpoint> = endpoints.values.toList()
@@ -111,30 +112,58 @@ class PairDropNsdManager(
     }
 
     private fun resolve(serviceInfo: NsdServiceInfo) {
-        if (!resolving.compareAndSet(false, true)) return
-        nsdManager.resolveService(
-            serviceInfo,
+        synchronized(resolveQueue) {
+            val alreadyQueued = resolveQueue.any {
+                it.serviceName == serviceInfo.serviceName && it.serviceType == serviceInfo.serviceType
+            }
+            if (!alreadyQueued) resolveQueue.addLast(serviceInfo)
+        }
+        resolveNext()
+    }
+
+    private fun resolveNext() {
+        val serviceInfo = synchronized(resolveQueue) {
+            if (resolving) return
+            val next = resolveQueue.removeFirstOrNull() ?: return
+            resolving = true
+            next
+        }
+
+        runCatching {
+            nsdManager.resolveService(
+                serviceInfo,
             object : NsdManager.ResolveListener {
                 override fun onResolveFailed(serviceInfo: NsdServiceInfo, errorCode: Int) {
-                    resolving.set(false)
                     Log.w(TAG, "NSD resolve failed: $errorCode")
+                    finishResolve()
                 }
 
                 override fun onServiceResolved(resolvedInfo: NsdServiceInfo) {
-                    resolving.set(false)
-                    val host = resolvedInfo.host?.hostAddress ?: return
-                    val port = resolvedInfo.port
-                    val remoteNodeId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                        resolvedInfo.attributes["nodeId"]?.toString(Charsets.UTF_8)
-                    } else {
-                        null
+                    try {
+                        val host = resolvedInfo.host?.hostAddress ?: return
+                        val port = resolvedInfo.port
+                        val remoteNodeId = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                            resolvedInfo.attributes["nodeId"]?.toString(Charsets.UTF_8)
+                        } else {
+                            null
+                        }
+                        if (remoteNodeId == nodeId || port <= 0) return
+                        val endpoint = ServiceEndpoint(host = host, port = port, nodeId = remoteNodeId)
+                        endpoints["${resolvedInfo.serviceName}|${endpoint.key}"] = endpoint
+                    } finally {
+                        finishResolve()
                     }
-                    if (remoteNodeId == nodeId || port <= 0) return
-                    val endpoint = ServiceEndpoint(host = host, port = port, nodeId = remoteNodeId)
-                    endpoints["${resolvedInfo.serviceName}|${endpoint.key}"] = endpoint
                 }
-            }
-        )
+            })
+        }.onFailure {
+            Log.w(TAG, "Could not resolve NSD service", it)
+            finishResolve()
+        }
+    }
+
+    private fun finishResolve() {
+        synchronized(resolveQueue) { resolving = false }
+        resolveNext()
     }
 
     companion object {

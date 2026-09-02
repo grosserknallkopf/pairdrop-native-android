@@ -296,7 +296,7 @@ class ServerConnection {
     }
 
     _onVisibilityChange() {
-        if (window.hiddenProperty) return;
+        if (window.hiddenProperty && document[window.hiddenProperty]) return;
         this._connect();
     }
 
@@ -1088,7 +1088,23 @@ class PeersManager {
 
     async _onFilesSelected(message) {
         let files = mime.addMissingMimeTypesToFiles([...message.files]);
-        await this.peers[message.to].requestFileTransfer(files);
+        const peer = await this._waitForPeer(message.to);
+        if (!peer) {
+            Events.fire('notify-user', Localization.getTranslation("notifications.selected-peer-left"));
+            return;
+        }
+        await peer.requestFileTransfer(files);
+    }
+
+    async _waitForPeer(peerId, timeout = 30000) {
+        const deadline = Date.now() + timeout;
+        while (Date.now() < deadline) {
+            if (this._server._isConnected() && this.peers[peerId]) {
+                return this.peers[peerId];
+            }
+            await new Promise(resolve => setTimeout(resolve, 200));
+        }
+        return null;
     }
 
     _onSendText(message) {

@@ -28,10 +28,12 @@ import com.pairdrop.android.intro.IntroView
 import com.pairdrop.android.service.PairDropService
 import com.pairdrop.android.share.PendingShareStore
 import com.pairdrop.android.util.Constants
+import java.util.concurrent.Executors
 
 class MainActivity : Activity() {
     private lateinit var webView: WebView
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val shareExecutor = Executors.newSingleThreadExecutor()
     private var filePathCallback: ValueCallback<Array<Uri>>? = null
     private var loadAttempts = 0
     private var pendingShareInjectionAttempts = 0
@@ -43,29 +45,23 @@ class MainActivity : Activity() {
             showIntro()
             return
         }
-        startPairDropUi(intent)
+        startPairDropUi(if (savedInstanceState == null) intent else null)
     }
 
     private fun startPairDropUi(startIntent: Intent?) {
         requestNotificationPermissionIfNeeded()
         PairDropService.startForUi(this)
-        PendingShareStore.addFromIntent(this, startIntent)
         setupWebView()
         registerBackHandler()
         loadPairDrop()
+        importSharedContent(startIntent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         PairDropService.startForUi(this)
-        PendingShareStore.addFromIntent(this, intent)
-        if (::webView.isInitialized) {
-            webView.evaluateJavascript(
-                "window.PairDropNative && window.PairDropNative.consumePendingShares && window.PairDropNative.consumePendingShares();",
-                null
-            )
-        }
+        importSharedContent(intent)
     }
 
     override fun onResume() {
@@ -74,6 +70,7 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        shareExecutor.shutdown()
         if (::webView.isInitialized) {
             webView.removeJavascriptInterface("PairDropAndroid")
             webView.destroy()
@@ -173,6 +170,18 @@ class MainActivity : Activity() {
 
     private fun loadPairDrop() {
         webView.loadUrl("http://127.0.0.1:${Constants.LOCAL_HTTP_PORT}/")
+    }
+
+    private fun importSharedContent(shareIntent: Intent?) {
+        if (shareIntent?.action != Intent.ACTION_SEND && shareIntent?.action != Intent.ACTION_SEND_MULTIPLE) return
+        shareExecutor.execute {
+            PendingShareStore.addFromIntent(applicationContext, shareIntent)
+            mainHandler.post {
+                if (!isFinishing && !isDestroyed && ::webView.isInitialized) {
+                    schedulePendingShareInjection()
+                }
+            }
+        }
     }
 
     private fun schedulePendingShareInjection() {
